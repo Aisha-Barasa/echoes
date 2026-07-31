@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Echoes — Report Pollution</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1A18; --card:#1C3B34; --line:#2A4A42; --text:#EDEAE2; --text-2:#8FA79E;
+    --coral:#E8593C; --amber:#D9A441; --sage:#6FA287;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;
+    min-height:100vh; display:flex; justify-content:center;
+  }
+  .wrap{ width:100%; max-width:480px; padding:24px 20px 60px; }
+  .topbar{ padding:4px 0 20px; border-bottom:1px solid var(--line); margin-bottom:20px; }
+  .topbar h1{ font-family:'Zilla Slab',serif; font-weight:600; font-size:22px; margin:0 0 4px; }
+  .topbar .sub{ color:var(--text-2); font-size:13px; }
+  .topbar a{ color:var(--sage); font-size:12px; font-family:'IBM Plex Mono',monospace; text-decoration:none; }
+
+  .mode-tabs{ display:flex; gap:8px; margin-bottom:18px; }
+  .mode-tab{
+    flex:1; text-align:center; padding:10px 6px; border-radius:8px; border:1px solid var(--line);
+    background:transparent; color:var(--text-2); font-family:'Inter',sans-serif; font-size:13px; cursor:pointer;
+  }
+  .mode-tab.active{ background:var(--card); color:var(--text); border-color:var(--sage); }
+
+  label{ display:block; font-size:12px; color:var(--text-2); margin:16px 0 6px; text-transform:uppercase; letter-spacing:0.04em; }
+  textarea, select, input[type=file]{
+    width:100%; background:var(--card); border:1px solid var(--line); border-radius:8px;
+    color:var(--text); padding:12px; font-family:'Inter',sans-serif; font-size:14px;
+  }
+  textarea{ min-height:100px; resize:vertical; }
+  select{ appearance:none; }
+
+  .mic-row{ display:flex; gap:10px; align-items:center; }
+  .mic-btn{
+    flex-shrink:0; width:52px; height:52px; border-radius:50%; border:1px solid var(--line);
+    background:var(--card); color:var(--text); font-size:20px; cursor:pointer;
+  }
+  .mic-btn.recording{ background:var(--coral); border-color:var(--coral); animation:blink 1s infinite; }
+  @keyframes blink{ 50%{ opacity:0.5; } }
+  .mic-hint{ font-size:12px; color:var(--text-2); }
+
+  .submit-btn{
+    width:100%; margin-top:24px; padding:14px; border-radius:8px; border:none;
+    background:var(--sage); color:#0E1A18; font-family:'Inter',sans-serif; font-weight:600;
+    font-size:15px; cursor:pointer;
+  }
+  .submit-btn:disabled{ background:var(--line); color:var(--text-2); }
+
+  .status{
+    margin-top:16px; padding:12px 14px; border-radius:8px; font-size:13px; display:none;
+  }
+  .status.ok{ display:block; background:rgba(111,162,135,0.15); border:1px solid var(--sage); color:var(--sage); }
+  .status.err{ display:block; background:rgba(232,89,60,0.15); border:1px solid var(--coral); color:var(--coral); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1>Report something</h1>
+    <div class="sub">Pwani county environmental desk</div>
+    <a href="/">← View live dashboard</a>
+  </div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="text">Write</button>
+    <button class="mode-tab" data-mode="voice">Voice</button>
+    <button class="mode-tab" data-mode="photo">Photo</button>
+  </div>
+
+  <form id="reportForm">
+    <div id="textSection">
+      <label>What's happening?</label>
+      <textarea id="text" placeholder="e.g. There's smoke near the market stalls..."></textarea>
+    </div>
+
+    <div id="voiceSection" style="display:none">
+      <label>Record a voice note</label>
+      <div class="mic-row">
+        <button type="button" class="mic-btn" id="micBtn">🎙️</button>
+        <div class="mic-hint" id="micHint">Tap to start recording. Works best in Chrome.</div>
+      </div>
+      <textarea id="voiceText" style="margin-top:12px" placeholder="Transcript will appear here — you can edit it before submitting."></textarea>
+    </div>
+
+    <div id="photoSection" style="display:none">
+      <label>Upload a photo</label>
+      <input type="file" id="photo" accept="image/*">
+      <label>Briefly describe what's in it</label>
+      <textarea id="imageDesc" placeholder="e.g. Thick grey smoke rising from a pile of burning garbage"></textarea>
+    </div>
+
+    <label>Where is this?</label>
+    <select id="landmark"><option>Loading…</option></select>
+
+    <label>Language</label>
+    <select id="language">
+      <option value="en">English</option>
+      <option value="sw-en">Swahili / English mix</option>
+    </select>
+
+    <button type="submit" class="submit-btn" id="submitBtn">Submit report</button>
+    <div class="status" id="status"></div>
+  </form>
+</div>
+
+<script>
+let mode = 'text';
+document.querySelectorAll('.mode-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    document.getElementById('textSection').style.display = mode === 'text' ? 'block' : 'none';
+    document.getElementById('voiceSection').style.display = mode === 'voice' ? 'block' : 'none';
+    document.getElementById('photoSection').style.display = mode === 'photo' ? 'block' : 'none';
+  });
+});
+
+fetch('/api/landmarks').then(r => r.json()).then(list => {
+  const sel = document.getElementById('landmark');
+  sel.innerHTML = list.map(l => `<option>${l}</option>`).join('');
+});
+
+// Voice recording via the Web Speech API (Chrome/Edge). If unavailable,
+// hide the mic button and let people type the transcript manually instead.
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = document.getElementById('micBtn');
+const micHint = document.getElementById('micHint');
+let recognizing = false, recognizer = null;
+
+if (SpeechRecognition) {
+  recognizer = new SpeechRecognition();
+  recognizer.continuous = true;
+  recognizer.interimResults = true;
+  recognizer.onresult = (e) => {
+    let transcript = '';
+    for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+    document.getElementById('voiceText').value = transcript;
+  };
+  recognizer.onend = () => { recognizing = false; micBtn.classList.remove('recording'); micHint.textContent = 'Tap to record again, or edit the text below.'; };
+  micBtn.addEventListener('click', () => {
+    if (!recognizing) {
+      recognizer.start(); recognizing = true;
+      micBtn.classList.add('recording'); micHint.textContent = 'Recording… tap again to stop.';
+    } else {
+      recognizer.stop();
+    }
+  });
+} else {
+  micHint.textContent = 'Voice recording needs Chrome or Edge — just type below instead.';
+  micBtn.disabled = true;
+}
+
+document.getElementById('reportForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const statusEl = document.getElementById('status');
+  const submitBtn = document.getElementById('submitBtn');
+  statusEl.className = 'status'; statusEl.textContent = '';
+
+  const fd = new FormData();
+  fd.append('modality', mode);
+  fd.append('landmark', document.getElementById('landmark').value);
+  fd.append('language', document.getElementById('language').value);
+
+  if (mode === 'text') {
+    fd.append('text', document.getElementById('text').value);
+  } else if (mode === 'voice') {
+    fd.append('text', document.getElementById('voiceText').value);
+  } else if (mode === 'photo') {
+    fd.append('text', '');
+    fd.append('image_desc', document.getElementById('imageDesc').value);
+    const photoFile = document.getElementById('photo').files[0];
+    if (photoFile) fd.append('photo', photoFile);
+  }
+
+  submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+  try {
+    const res = await fetch('/api/submit_report', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Something went wrong');
+    statusEl.className = 'status ok';
+    statusEl.textContent = `Submitted — clustered into event, confidence now ${Math.round(data.confidence*100)}%. View it on the dashboard.`;
+    e.target.reset();
+  } catch (err) {
+    statusEl.className = 'status err';
+    statusEl.textContent = err.message;
+  } finally {
+    submitBtn.disabled = false; submitBtn.textContent = 'Submit report';
+  }
+});
+</script>
+</body>
+</html>
