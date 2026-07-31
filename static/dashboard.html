@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Echoes — County Environmental Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1A18; --surface:#16302B; --card:#1C3B34; --card-2:#20423A;
+    --line:#2A4A42; --text:#EDEAE2; --text-2:#8FA79E;
+    --coral:#E8593C; --amber:#D9A441; --sage:#6FA287;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',sans-serif; min-height:100vh;
+  }
+  .topbar{
+    display:flex; align-items:baseline; gap:12px;
+    padding:20px 28px; border-bottom:1px solid var(--line);
+  }
+  .topbar h1{
+    font-family:'Zilla Slab',serif; font-weight:600; font-size:22px; margin:0;
+  }
+  .topbar .sub{ color:var(--text-2); font-size:13px; font-family:'IBM Plex Mono',monospace; }
+  .layout{ display:grid; grid-template-columns:1fr 1fr; gap:0; min-height:calc(100vh - 65px); }
+  .feed-col{ padding:24px 28px; border-right:1px solid var(--line); }
+  .feed-col h2, .event-col h2{
+    font-family:'Zilla Slab',serif; font-weight:500; font-size:15px;
+    color:var(--text-2); text-transform:uppercase; letter-spacing:0.06em;
+    margin:0 0 16px;
+  }
+  .feed-item{
+    display:grid; grid-template-columns:56px 28px 1fr; gap:10px;
+    padding:10px 0; border-bottom:1px solid var(--line);
+    opacity:0; animation:rise 0.4s ease forwards;
+  }
+  @keyframes rise{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .feed-item .ts{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-2); }
+  .feed-item .mod{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; text-align:center;
+    color:var(--sage); border:1px solid var(--line); border-radius:4px; height:20px; line-height:20px;
+  }
+  .feed-item .txt{ font-size:13px; line-height:1.5; }
+  .feed-item .landmark{ color:var(--text-2); font-size:11px; margin-top:2px; }
+
+  .event-col{ padding:24px 28px; }
+  .alert-banner{
+    display:none; background:var(--coral); color:#2A0E06; font-family:'IBM Plex Mono',monospace;
+    font-size:12px; font-weight:500; padding:10px 14px; border-radius:6px; margin-bottom:16px;
+    letter-spacing:0.03em;
+  }
+  .event-card{
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:24px;
+  }
+  .event-card .title{ font-family:'Zilla Slab',serif; font-weight:600; font-size:19px; }
+  .event-card .type{ color:var(--text-2); font-size:12px; font-family:'IBM Plex Mono',monospace; margin-top:2px; }
+
+  .ring-wrap{ display:flex; justify-content:center; padding:20px 0; }
+  .ring-wrap svg{ overflow:visible; }
+  .ring-pct{ font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:500; fill:var(--text); }
+  .ring-lbl{ font-family:'Inter',sans-serif; font-size:11px; fill:var(--text-2); }
+  .pulse{ animation:pulse 0.6s ease-out; }
+  @keyframes pulse{
+    0%{ stroke-opacity:0.9; }
+    100%{ stroke-opacity:0; }
+  }
+
+  .evidence{ margin-top:8px; }
+  .ev-row{
+    display:flex; align-items:center; gap:10px; padding:7px 0;
+    font-size:13px; color:var(--text-2); border-bottom:1px solid var(--line);
+  }
+  .ev-row.on{ color:var(--text); }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--line); flex-shrink:0; }
+  .ev-row.on .dot{ background:var(--sage); }
+  .ev-row .val{ margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; }
+
+  .rationale{
+    margin-top:16px; padding-top:14px; border-top:1px solid var(--line);
+    font-size:12px; color:var(--text-2); line-height:1.6;
+  }
+  .rationale span{ color:var(--text); }
+  .empty{ color:var(--text-2); font-size:13px; padding:40px 0; text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Echoes</h1>
+  <span class="sub">Pwani county environmental desk — live incident correlation</span>
+</div>
+
+<div class="layout">
+  <div class="feed-col">
+    <h2>Incoming reports</h2>
+    <div id="feed"></div>
+  </div>
+  <div class="event-col">
+    <h2>Active event</h2>
+    <div id="alert" class="alert-banner"></div>
+    <div id="eventArea"><div class="empty">Waiting for first report…</div></div>
+  </div>
+</div>
+
+<script>
+let lastFeedCount = 0;
+let lastConfidence = 0;
+
+function fmtTime(ts){
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+
+function modalityLabel(m){
+  return {text:'TXT', voice:'VOX', photo:'IMG'}[m] || m.toUpperCase();
+}
+
+function renderFeed(timeline){
+  const feed = document.getElementById('feed');
+  for (let i = lastFeedCount; i < timeline.length; i++){
+    const t = timeline[i];
+    const item = document.createElement('div');
+    item.className = 'feed-item';
+    item.innerHTML = `
+      <div class="ts">${fmtTime(t.report.ts)}</div>
+      <div class="mod">${modalityLabel(t.report.modality)}</div>
+      <div>
+        <div class="txt">${t.report.text}</div>
+        <div class="landmark">${t.report.landmark}</div>
+      </div>`;
+    feed.prepend(item);
+  }
+  lastFeedCount = timeline.length;
+}
+
+function ringSvg(pct, justPulsed){
+  const r = 70, c = 2 * Math.PI * r;
+  const offset = c * (1 - pct);
+  const color = pct >= 0.9 ? 'var(--coral)' : (pct >= 0.5 ? 'var(--amber)' : 'var(--sage)');
+  return `
+  <svg width="180" height="180" viewBox="0 0 180 180">
+    <circle cx="90" cy="90" r="${r}" fill="none" stroke="var(--line)" stroke-width="10"/>
+    <circle cx="90" cy="90" r="${r}" fill="none" stroke="${color}" stroke-width="10"
+      stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${offset}"
+      transform="rotate(-90 90 90)" style="transition:stroke-dashoffset 0.6s ease, stroke 0.6s ease"/>
+    ${justPulsed ? `<circle class="pulse" cx="90" cy="90" r="${r}" fill="none" stroke="${color}" stroke-width="3"/>` : ''}
+    <text x="90" y="86" text-anchor="middle" class="ring-pct">${Math.round(pct*100)}%</text>
+    <text x="90" y="104" text-anchor="middle" class="ring-lbl">confidence</text>
+  </svg>`;
+}
+
+function renderEvent(ev, lastDecision){
+  const area = document.getElementById('eventArea');
+  const justPulsed = ev.confidence > lastConfidence;
+  lastConfidence = ev.confidence;
+
+  const evid = [
+    {label:'Independent reports', on:ev.report_count >= 3, val:ev.report_count},
+    {label:'Modality diversity', on:ev.modalities.length >= 2, val: ev.modalities.join(', ')},
+    {label:'Geographic tightness', on:ev.confidence > 0.4, val: ev.confidence > 0.4 ? 'tight cluster' : 'spread out'},
+    {label:'Time tightness', on:ev.confidence > 0.4, val: ev.confidence > 0.4 ? 'within window' : 'wide window'},
+    {label:'Semantic match (Gemma)', on: true, val: 'scored per report'},
+  ];
+
+  area.innerHTML = `
+    <div class="event-card">
+      <div class="title">${ev.title}</div>
+      <div class="type">${ev.pollution_type} event · ${ev.report_count} report${ev.report_count===1?'':'s'}</div>
+      <div class="ring-wrap">${ringSvg(ev.confidence, justPulsed)}</div>
+      <div class="evidence">
+        ${evid.map(e => `
+          <div class="ev-row ${e.on?'on':''}">
+            <div class="dot"></div>
+            <div>${e.label}</div>
+            <div class="val">${e.val}</div>
+          </div>`).join('')}
+      </div>
+      <div class="rationale"><span>Latest rationale:</span><br>${lastDecision || '—'}</div>
+    </div>`;
+
+  const alertEl = document.getElementById('alert');
+  if (ev.alert_fired){
+    alertEl.style.display = 'block';
+    alertEl.textContent = `ALERT — ${ev.pollution_type} event confirmed at ${ev.report_count} reports, ${Math.round(ev.confidence*100)}% confidence. Dispatch recommended.`;
+  }
+}
+
+async function poll(){
+  try{
+    const res = await fetch('/api/state');
+    const data = await res.json();
+    renderFeed(data.timeline);
+    if (data.events.length){
+      const ev = data.events[data.events.length - 1];
+      const lastDecision = data.timeline.length ? data.timeline[data.timeline.length-1].decision.rationale : '';
+      renderEvent(ev, lastDecision);
+    }
+  } catch(e){ /* server still starting */ }
+  setTimeout(poll, 1000);
+}
+poll();
+</script>
+</body>
+</html>
