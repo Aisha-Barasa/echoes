@@ -1,4 +1,7 @@
-# Echoes — Build with Gemma (GDG Pwani), Track 2: CleanAir & Clear Streets
+# Echoes — Build with Gemma  
+## Track 2: CleanAir & Clear Streets
+
+🔗 **[Deployed Link](https://echoes-t5je.onrender.com/)** · 🎥 **[Demo Video](https://youtu.be/ccNhTVFltsE)**
 
 **"When one person speaks, a community is heard."**
 
@@ -12,6 +15,32 @@ dashboard fires an alert.
 
 This repo ships one rehearsed happy path: a garbage fire near Kongowea
 Market, Mombasa, told through six reports arriving over ~25 minutes.
+
+## See it in action
+
+<img width="400" height="451" alt="e1" src="https://github.com/user-attachments/assets/02ffaeb6-9d32-4340-8576-4dacfb470d4b" />
+
+Citizens submit through a real, working public page — no login, no app to
+install. Voice notes are transcribed live in the browser
+
+
+<img width="1336" height="590" alt="e2" src="https://github.com/user-attachments/assets/8f4368d9-0af3-43a3-850f-bfa565c30525" />
+
+A single report opens a new event at modest confidence — the system
+correctly recognizes it doesn't yet match anything nearby closely enough
+to join, and starts fresh rather than forcing a false match. Confidence
+climbs as more independent reports arrive (see below)
+
+
+<img width="1342" height="586" alt="e3" src="https://github.com/user-attachments/assets/dad994f6-f07f-418f-b16c-83196db96bc6" />
+
+Confidence at its peak: six scripted reports plus one live submission —
+"There is smoke near Kongowea market," worded differently from every
+other report — correctly joined the same event rather than starting a
+new one. The alert fires once confidence crosses 90% with at least three
+independent reports.
+
+
 
 ## Architecture
 
@@ -47,14 +76,13 @@ model call — but the actual clustering intelligence is Gemma's.
   tools (`get_weather`, `get_satellite_hotspot`).
 - **Weather** — real, live call to Open-Meteo (no API key required).
 - **Satellite hotspot detection** — **mocked**. A production version
-  would query NASA FIRMS; we stub it to `fire_detected: false` and say
-  so directly in the code and this README.
+  would query NASA FIRMS; we stub it to `fire_detected: false` 
 - **Offline fallback classifier** — if Ollama isn't reachable (no GPU,
   model not pulled), a small deterministic keyword classifier takes
   over so the demo never stalls on a live model dependency. This is
   logged loudly every time it fires and is not used to disguise the
   absence of a real Gemma integration — it's a resilience fallback for
-  a 1-day sprint demo, documented here on purpose.
+  a demo.
 
 ## Running it
 
@@ -96,3 +124,7 @@ Alert fires at confidence ≥ 0.90 with ≥ 3 independent reports.
 - `demo_reports.py` — the scripted six-report happy path
 - `server.py` — Flask app serving the dashboard and feeding the demo
 - `static/dashboard.html` — county dashboard UI
+
+  **"When one person speaks, it's a report."**
+  
+  **"When a community speaks, it is impossible to ignore."**
